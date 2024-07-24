@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "305804827696",
+    "project_id": "finalproject-e1916",
+    "storage_bucket": "finalproject-e1916.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:305804827696:android:58b4027335c2d09e8161f5",
+        "android_client_info": {
+          "package_name": "com.example.derot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCWY3SbSfi8meV2ze8SgAX3W7WSzqxH9Yw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

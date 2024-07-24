@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "831641708954",
+    "project_id": "bestrent-83edd",
+    "storage_bucket": "bestrent-83edd.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:831641708954:android:2583b00387455ee380f223",
+        "android_client_info": {
+          "package_name": "com.example.derot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCFjJDyvoXKZOdso1UI5aBkUD48MX2XyZM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
