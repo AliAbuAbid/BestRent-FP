@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Listings are publicly browsable (matches current app behavior:
+    // Home screen shows apartments without requiring login).
+    match /apartments/{apartmentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Public profile info (username shown on listings/chat).
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Everything else (favourites, chats, contracts, notifications, ...)
+    // requires the user to be signed in.
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

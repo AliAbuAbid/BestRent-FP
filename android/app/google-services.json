@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "708203689067",
+    "project_id": "finalproject-f5395",
+    "storage_bucket": "finalproject-f5395.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:708203689067:android:778f56ec4b70f232fa2d2e",
+        "android_client_info": {
+          "package_name": "com.example.derot"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPkWuhUAUdwbRtmFIF7CMBoC2KrKhSHQ0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
