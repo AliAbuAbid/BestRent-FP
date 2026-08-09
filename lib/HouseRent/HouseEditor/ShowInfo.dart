@@ -51,6 +51,57 @@ class _ShowInfo extends State<ShowInfo> {
   String ali = '';
   String userPhone = '12';
 
+  Set<String> favoritePosts = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    if (user == null) return;
+    final favoritesRef =
+        FirebaseFirestore.instance.collection('favourites').doc(user!.email);
+    DocumentSnapshot doc = await favoritesRef.get();
+    if (doc.exists) {
+      setState(() {
+        favoritePosts = (doc.data() as Map<String, dynamic>).keys.toSet();
+      });
+    }
+  }
+
+  Future<void> toggleFavorite(String postId) async {
+    if (user == null) return;
+    final favoritesRef =
+        FirebaseFirestore.instance.collection('favourites').doc(user!.email);
+    final bool isFav = favoritePosts.contains(postId);
+
+    if (isFav) {
+      await favoritesRef.update({postId: FieldValue.delete()});
+      setState(() {
+        favoritePosts.remove(postId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('127'.tr, style: const TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromARGB(255, 49, 48, 48),
+        ),
+      );
+    } else {
+      await favoritesRef.set({postId: "documentId"}, SetOptions(merge: true));
+      setState(() {
+        favoritePosts.add(postId);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('124'.tr, style: const TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromARGB(255, 49, 48, 48),
+        ),
+      );
+    }
+  }
+
   void _showEnlargedImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -292,6 +343,29 @@ class _ShowInfo extends State<ShowInfo> {
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 10,
+                        right: 54,
+                        child: GestureDetector(
+                          onTap: () => toggleFavorite(contentId),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              favoritePosts.contains(contentId)
+                                  ? Icons.favorite
+                                  : Icons.favorite_border,
+                              size: 18,
+                              color: favoritePosts.contains(contentId)
+                                  ? Colors.redAccent
+                                  : (isDark ? Colors.white : Colors.black),
                             ),
                           ),
                         ),
