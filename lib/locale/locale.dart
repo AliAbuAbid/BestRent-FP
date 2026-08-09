@@ -239,6 +239,7 @@ class MyLocale implements Translations {
               'שלום, אני מעוניין/ת לשכור את הדירה ב-@city, @district - @street, קומה @floar, @rooms חדרים, מחיר @price ₪.',
           "225": 'שוכרים',
           "226": 'לא נוספו שוכרים',
+          "227": 'לזכור את השיחה',
         },
         "ar": {
           "1": "الصفحة الرئيسية",
@@ -476,6 +477,7 @@ class MyLocale implements Translations {
               'مرحباً، أرغب في استئجار الشقة في @city، @district - @street، الطابق @floar، @rooms غرف، السعر @price ₪.',
           "225": 'المستأجرون',
           "226": 'لم تتم إضافة مستأجرين',
+          "227": 'تذكر المحادثة',
         },
         "en": {
           "1": "Home Page",
@@ -714,6 +716,7 @@ class MyLocale implements Translations {
               'Hi, I want to rent the apartment in @city, @district - @street, floor @floar, @rooms rooms, price @price ₪.',
           "225": 'Renters',
           "226": 'No renters added',
+          "227": 'Remember this conversation',
         }
       };
 }

@@ -11,6 +11,7 @@ import 'package:derot/drawerFunctions/support.dart';
 import 'package:derot/drawerFunctions/terms&conditions.dart';
 
 import 'package:derot/notifications.dart';
+import 'package:derot/DataBase/PushNotificationService.dart';
 import 'package:derot/HouseRent/HouseEditor/bestOffers.dart';
 import 'package:derot/HouseRent/HouseEditor/data.dart';
 import 'package:derot/HouseRent/HouseEditor/myHouses.dart';
@@ -189,6 +190,7 @@ class homeScreenState extends State<DrawerShow> {
     setState(() async {
       if (isLoggedIn == true) {
         // Logout
+        await PushNotificationService.clearTokenForCurrentUser();
         await FirebaseAuth.instance.signOut();
         SharedPreferencesService.setLoggedIn(false);
         Navigator.of(context)

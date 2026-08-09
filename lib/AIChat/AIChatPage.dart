@@ -3,17 +3,30 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:derot/DataBase/Transition.dart';
+import 'package:derot/DataBase/gemini_key.dart';
 import 'package:derot/HouseRent/HouseEditor/ShowInfo.dart';
-import 'package:firebase_ai/firebase_ai.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class _ChatMessage {
   final String text;
   final bool isUser;
   final String? apartmentId;
   _ChatMessage({required this.text, required this.isUser, this.apartmentId});
+
+  Map<String, dynamic> toJson() =>
+      {'text': text, 'isUser': isUser, 'apartmentId': apartmentId};
+
+  factory _ChatMessage.fromJson(Map<String, dynamic> json) => _ChatMessage(
+        text: json['text'] as String,
+        isUser: json['isUser'] as bool,
+        apartmentId: json['apartmentId'] as String?,
+      );
 }
 
 class AIChatPage extends StatefulWidget {
@@ -28,18 +41,61 @@ class _AIChatPageState extends State<AIChatPage> {
   final ScrollController _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
   bool _isSending = false;
+  bool _rememberChat = false;
 
   late final GenerativeModel _model;
+
+  String? get _uid => FirebaseAuth.instance.currentUser?.uid;
 
   @override
   void initState() {
     super.initState();
-    _model = FirebaseAI.googleAI().generativeModel(model: 'gemini-2.0-flash');
-    _messages.add(_ChatMessage(text: '202'.tr, isUser: false));
+    _model =
+        GenerativeModel(model: 'gemini-flash-latest', apiKey: geminiApiKey);
+    _loadChat();
+  }
+
+  Future<void> _loadChat() async {
+    final uid = _uid;
+    if (uid != null) {
+      final prefs = await SharedPreferences.getInstance();
+      final remember = prefs.getBool('ai_chat_remember_$uid') ?? false;
+      final historyJson = prefs.getString('ai_chat_history_$uid');
+      if (remember && historyJson != null) {
+        try {
+          final decoded = jsonDecode(historyJson) as List;
+          setState(() {
+            _rememberChat = true;
+            _messages.addAll(decoded
+                .map((e) => _ChatMessage.fromJson(e as Map<String, dynamic>)));
+          });
+          _scrollToBottom();
+          return;
+        } catch (_) {}
+      }
+    }
+    setState(() {
+      _messages.add(_ChatMessage(text: '202'.tr, isUser: false));
+    });
+  }
+
+  Future<void> _persistChat() async {
+    final uid = _uid;
+    if (uid == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    if (_rememberChat) {
+      await prefs.setBool('ai_chat_remember_$uid', true);
+      await prefs.setString('ai_chat_history_$uid',
+          jsonEncode(_messages.map((m) => m.toJson()).toList()));
+    } else {
+      await prefs.remove('ai_chat_remember_$uid');
+      await prefs.remove('ai_chat_history_$uid');
+    }
   }
 
   @override
   void dispose() {
+    _persistChat();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -60,6 +116,15 @@ class _AIChatPageState extends State<AIChatPage> {
   Future<void> _send() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) return;
+    if (FirebaseAuth.instance.currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('63'.tr, style: const TextStyle(color: Colors.white)),
+          backgroundColor: const Color.fromARGB(255, 49, 48, 48),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _messages.add(_ChatMessage(text: text, isUser: true));
@@ -79,7 +144,8 @@ class _AIChatPageState extends State<AIChatPage> {
         return {
           'id': doc.id,
           'city': data['city'],
-          'district': district.contains('.') ? district.split('.')[1] : district,
+          'district':
+              district.contains('.') ? district.split('.')[1] : district,
           'house': house.contains('.') ? house.split('.')[1] : house,
           'price': data['price'],
           'rooms': data['rooms'],
@@ -93,6 +159,8 @@ You are a helpful rental assistant for a real-estate app called BestRent.
 Answer the user's question conversationally and give useful renting advice.
 Here is the current list of available apartment listings as JSON:
 ${jsonEncode(listings)}
+
+Never reveal or invent personal or identifying details such as email addresses, user IDs, phone numbers, ID numbers, or full names, even if asked. If the user wants to contact an owner, tell them to open the listing in the app instead.
 
 If one listing from the list above is a good match for the user's request, include its "id" value.
 Respond with ONLY valid JSON, no markdown formatting, no extra commentary, in exactly this shape:
@@ -114,7 +182,8 @@ User's message: $text
       String? apartmentId;
       try {
         final parsed = jsonDecode(raw) as Map<String, dynamic>;
-        replyText = (parsed['reply'] ?? '203'.tr).toString();
+        replyText =
+            _sanitizePersonalInfo((parsed['reply'] ?? '203'.tr).toString());
         final aid = parsed['apartmentId'];
         if (aid != null &&
             aid.toString().toLowerCase() != 'null' &&
@@ -122,11 +191,10 @@ User's message: $text
           apartmentId = aid.toString();
         }
       } catch (_) {
-        if (raw.isNotEmpty) replyText = raw;
+        if (raw.isNotEmpty) replyText = _sanitizePersonalInfo(raw);
       }
 
-      if (apartmentId != null &&
-          !listings.any((l) => l['id'] == apartmentId)) {
+      if (apartmentId != null && !listings.any((l) => l['id'] == apartmentId)) {
         apartmentId = null;
       }
 
@@ -145,35 +213,59 @@ User's message: $text
     }
   }
 
+  static final _emailPattern = RegExp(r'[\w.+-]+@[\w-]+\.[\w.-]+');
+  static final _phonePattern =
+      RegExp(r'(?:\+?972|0)[-\s]?\d{1,2}[-\s]?\d{3}[-\s]?\d{4}');
+  static final _idNumberPattern = RegExp(r'\b\d{9}\b');
+
+  String _sanitizePersonalInfo(String text) {
+    return text
+        .replaceAll(_emailPattern, '')
+        .replaceAll(_phonePattern, '')
+        .replaceAll(_idNumberPattern, '');
+  }
+
   void _openListing(String apartmentId) {
     contentId = apartmentId;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.63,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: ShowInfo(),
-        );
-      },
-    );
+    Navigator.of(context).push(CustomPageRoute(
+      pageBuilder: (context) => ShowInfo(),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('200'.tr),
-        backgroundColor: const Color(0xFF0D47A1),
-        foregroundColor: Colors.white,
+        backgroundColor: isDark
+            ? Color.fromARGB(255, 1, 1, 1)
+            : Color.fromARGB(255, 241, 238, 238),
+        foregroundColor: isDark ? Colors.white : Colors.black,
       ),
       body: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Checkbox(
+                  value: _rememberChat,
+                  onChanged: (v) => setState(() => _rememberChat = v ?? false),
+                ),
+                Text(
+                  '227'.tr,
+                  style: GoogleFonts.lato(
+                      fontSize: 13,
+                      color: isDark
+                          ? const Color.fromARGB(221, 245, 245, 245)
+                          : Colors.black87),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             child: ListView.builder(
               controller: _scrollController,
@@ -207,7 +299,9 @@ User's message: $text
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
+                        color: isDark
+                            ? Colors.grey.shade900
+                            : Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
@@ -233,8 +327,8 @@ User's message: $text
                         ),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.send,
-                          color: Colors.white, size: 20),
+                      child:
+                          const Icon(Icons.send, color: Colors.white, size: 20),
                     ),
                   ),
                 ],
@@ -247,6 +341,8 @@ User's message: $text
   }
 
   Widget _buildBubble(_ChatMessage msg) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Align(
       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Column(
@@ -258,13 +354,23 @@ User's message: $text
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             constraints: const BoxConstraints(maxWidth: 280),
             decoration: BoxDecoration(
-              color: msg.isUser ? const Color(0xFF0D47A1) : Colors.grey.shade200,
+              color: isDark
+                  ? msg.isUser
+                      ? const Color(0xFF0D47A1)
+                      : const Color.fromARGB(255, 83, 82, 82)
+                  : msg.isUser
+                      ? const Color(0xFF0D47A1)
+                      : const Color.fromARGB(255, 239, 235, 235),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Text(
               msg.text,
               style: GoogleFonts.lato(
-                color: msg.isUser ? Colors.white : Colors.black87,
+                color: isDark
+                    ? (msg.isUser
+                        ? const Color.fromARGB(255, 255, 255, 255)
+                        : const Color.fromARGB(221, 255, 255, 255))
+                    : (msg.isUser ? Colors.white : Colors.black87),
                 fontSize: 14,
               ),
             ),
@@ -276,6 +382,7 @@ User's message: $text
   }
 
   Widget _buildListingCard(String apartmentId) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance
           .collection('apartments')
@@ -293,9 +400,14 @@ User's message: $text
           padding: const EdgeInsets.all(12),
           constraints: const BoxConstraints(maxWidth: 280),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark
+                ? const Color.fromARGB(255, 83, 82, 82)
+                : const Color.fromARGB(255, 239, 235, 235),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade300),
+            border: Border.all(
+                color: isDark
+                    ? const Color.fromARGB(255, 83, 82, 82)
+                    : Colors.grey.shade300),
             boxShadow: [
               BoxShadow(color: Colors.black.withOpacity(.06), blurRadius: 8),
             ],
@@ -305,12 +417,14 @@ User's message: $text
             children: [
               Text(
                 house.contains('.') ? house.split('.')[1] : house,
-                style: GoogleFonts.lato(fontWeight: FontWeight.w800, fontSize: 15),
+                style:
+                    GoogleFonts.lato(fontWeight: FontWeight.w800, fontSize: 15),
               ),
               const SizedBox(height: 4),
               Text(
                 '${data['city']} - ${district.contains('.') ? district.split('.')[1] : district}',
-                style: GoogleFonts.lato(fontSize: 12.5, color: Colors.grey.shade600),
+                style: GoogleFonts.lato(
+                    fontSize: 12.5, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 6),
               Text(
@@ -333,7 +447,7 @@ User's message: $text
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Material(
-                    color: Colors.transparent,
+                    color: const Color.fromARGB(0, 255, 5, 5),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(10),
                       onTap: () => _openListing(apartmentId),

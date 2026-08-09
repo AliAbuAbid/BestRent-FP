@@ -14,11 +14,13 @@ import 'package:derot/locale/locale_controller.dart';
 import 'package:derot/locale/theme_controller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'DataBase/firebase_options.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:derot/DataBase/sharedPrefences.dart';
+import 'package:derot/DataBase/PushNotificationService.dart';
 
 SharedPreferences? sharepref;
 SharedPreferences? profile;
@@ -31,6 +33,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
   //WidgetsFlutterBinding.ensureInitialized();
   await SharedPreferencesService.init();
@@ -40,6 +43,7 @@ void main() async {
   //   webRecaptchaSiteKey: 'recaptcha-v3-site-key',
   // );
   //loggedIn = await SharedPreferences.getInstance();
+  await PushNotificationService.init();
   runApp(MyApp());
 }
 

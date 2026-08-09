@@ -285,6 +285,18 @@ class homeScreenState extends State<HomePage> {
                         /// 🤖 Chat with AI
                         InkWell(
                           onTap: () {
+                            if (FirebaseAuth.instance.currentUser == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('63'.tr,
+                                      style:
+                                          const TextStyle(color: Colors.white)),
+                                  backgroundColor:
+                                      const Color.fromARGB(255, 49, 48, 48),
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.of(context).push(CustomPageRoute(
                               pageBuilder: (context) => const AIChatPage(),
                             ));
