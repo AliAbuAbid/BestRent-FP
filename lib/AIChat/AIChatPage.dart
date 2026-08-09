@@ -301,7 +301,7 @@ User's message: $text
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.grey.shade900
-                            : Colors.grey.shade100,
+                            : const Color.fromARGB(176, 240, 237, 237),
                         borderRadius: BorderRadius.circular(24),
                       ),
                       child: TextField(
